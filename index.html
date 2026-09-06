@@ -786,40 +786,49 @@
             openModal('uploadModal', 'uploadModalContent');
         }
 
-        function handleUpload(e) {
-            e.preventDefault();
-            const title = document.getElementById('fileTitle').value.trim();
-            const desc = document.getElementById('fileDesc').value.trim();
-            const date = document.getElementById('fileDate').value;
-            const category = document.getElementById('fileCategory').value;
-            const fileInput = document.getElementById('fileAttach');
-            
-            if (fileInput.files.length === 0) return;
-            const file = fileInput.files[0];
-            
-            if (!file.name.match(/\.(pdf|xls|xlsx)$/i)) {
-                return;
-            }
+        async function handleUpload(e) {
+    e.preventDefault();
+    const title = document.getElementById('fileTitle').value.trim();
+    const desc = document.getElementById('fileDesc').value.trim();
+    const date = document.getElementById('fileDate').value.trim();
+    const category = document.getElementById('fileCategory').value;
+    const fileInput = document.getElementById('fileAttach');
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const base64Data = event.target.result;
-                state.files.push({
-                    id: 'file_' + Date.now(),
-                    title: title,
-                    desc: desc,
-                    date: date,
-                    category: category,
-                    fileName: file.name,
-                    dataUrl: base64Data,
-                    folderId: state.currentFolderId,
-                    isFavorite: false
-                });
-                closeModals();
-                renderItems();
-            };
-            reader.readAsDataURL(file);
-        }
+    if (fileInput.files.length === 0) return;
+    const file = fileInput.files[0];
+
+    // رفع الملف إلى Supabase Storage مباشرة
+    const { data, error } = await _supabase.storage
+        .from('files')
+        .upload(Date.now() + '_' + file.name, file);
+
+    if (error) {
+        console.error('خطأ في الرفع:', error.message);
+        alert('فشل رفع الملف إلى التخزين السحابي!');
+        return;
+    }
+
+    // جلب الرابط العام للملف المرفوع
+    const { data: publicUrlData } = _supabase.storage
+        .from('files')
+        .getPublicUrl(data.path);
+
+    state.files.push({
+        id: 'file_' + Date.now(),
+        title: title,
+        desc: desc,
+        date: date,
+        category: category,
+        fileName: file.name,
+        dataUrl: publicUrlData.publicUrl, // تخزين رابط Supabase المباشر
+        folderId: state.currentFolderId,
+        isFavorite: false
+    });
+
+    closeModals();
+    renderItems();
+    document.getElementById('uploadForm').reset();
+}
 
         function toggleFileFavorite(id) {
             const file = state.files.find(f => f.id === id);
