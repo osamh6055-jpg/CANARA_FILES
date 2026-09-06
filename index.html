@@ -375,11 +375,38 @@
             }
         };
 
-        window.onload = () => {
-            document.getElementById('fileDate').valueAsDate = new Date();
-            initDatePicker();
-            applyLanguage();
-        };
+      window.onload = async () => {
+    document.getElementById('fileDate').valueAsDate = new Date();
+    initDatePicker();
+    applyLanguage();
+
+    // جلب الملفات من سلة Supabase Storage
+    const { data, error } = await _supabase.storage
+        .from('files')
+        .list();
+
+    if (!error && data) {
+        // تحويل الملفات القادمة من سلة Supabase إلى عناصر تفهمها واجهة التطبيق
+        state.files = data.map(file => {
+            const { data: publicUrlData } = _supabase.storage
+                .from('files')
+                .getPublicUrl(file.name);
+
+            return {
+                id: 'file_' + file.id,
+                title: file.name.split('_').slice(1).join('_') || file.name, // استخراج اسم الملف بدون التوقيت
+                desc: '',
+                date: file.created_at ? file.created_at.split('T')[0] : '',
+                category: 'other',
+                fileName: file.name,
+                dataUrl: publicUrlData.publicUrl,
+                folderId: null,
+                isFavorite: false
+            };
+        });
+        renderItems();
+    }
+};
 
         function handleLogin(e) {
             e.preventDefault();
