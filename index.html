@@ -383,7 +383,7 @@
     // جلب الملفات من سلة Supabase Storage
     const { data, error } = await _supabase.storage
         .from('files')
-        .list();
+        .list('');
 
     if (!error && data) {
         // تحويل الملفات القادمة من سلة Supabase إلى عناصر تفهمها واجهة التطبيق
