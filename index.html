@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سحابة التخزين | Cloud Storage</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Flatpickr for modern date picking -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/ar.js"></script>
+    <style>
+        body {
+            font-family: 'Tajawal', 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .drag-over {
+            border: 2px dashed #3b82f6 !important;
+            background-color: #eff6ff !important;
+        }
+        
+        .transition-all-custom {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .flatpickr-calendar {
+            border: none !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+            border-radius: 12px !important;
+            padding: 10px !important;
+            font-family: inherit !important;
+        }
+        .flatpickr-day.selected {
+            background: #2563eb !important;
+            border-color: #2563eb !important;
+        }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800">
+
+    <div id="loginScreen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 transform transition-all-custom">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mb-4 shadow-inner">
+                    <i class="fa-solid fa-cloud text-3xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800" id="loginTitle">تسجيل الدخول إلى سحابتي</h2>
+                <p class="text-sm text-slate-500 mt-1" id="loginSubtitle">الرجاء إدخال بيانات الاعتماد للمتابعة</p>
+            </div>
+            
+            <form onsubmit="handleLogin(event)" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5" id="lblUsername">اسم المستخدم</label>
+                    <div class="relative">
+                        <input type="text" id="loginUser" required class="w-full ps-10 pe-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white text-sm transition-all" placeholder="" autocomplete="username">
+                        <i class="fa-regular fa-user absolute start-3.5 top-3.5 text-slate-400"></i>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5" id="lblLoginPin">الرقم السري</label>
+                    <div class="relative">
+                        <input type="password" id="loginPin" required class="w-full ps-10 pe-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white text-sm transition-all" placeholder="••••••" autocomplete="current-password">
+                        <i class="fa-solid fa-lock absolute start-3.5 top-3.5 text-slate-400"></i>
+                    </div>
+                    <p id="loginError" class="text-red-500 text-xs mt-2 hidden font-medium">اسم المستخدم أو الرقم السري غير صحيح</p>
+                </div>
+                <button type="submit" class="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold shadow-lg shadow-blue-500/30 transition-all-custom flex items-center justify-center gap-2">
+                    <span id="btnLoginText">دخول</span>
+                    <i class="fa-solid fa-arrow-left rtl:rotate-180 text-xs"></i>
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center">
+                <button onclick="toggleLoginLanguage()" class="text-xs text-slate-500 hover:text-blue-600 font-medium transition-colors">
+                    <i class="fa-solid fa-globe mx-1"></i> <span id="lblLoginLang">English</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <aside class="w-64 bg-slate-900 text-white flex flex-col transition-all-custom" id="sidebar">
+        <div class="p-6 flex items-center justify-between border-b border-slate-700">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-cloud text-blue-400 text-2xl"></i>
+                <h1 class="text-xl font-bold" id="appTitle">سحابتي</h1>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <button onclick="navigateTo('root')" class="w-full flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-white hover:bg-blue-700 transition-all-custom" id="navMyFiles">
+                <i class="fa-regular fa-folder-open"></i>
+                <span class="font-medium" id="lblMyFiles">ملفاتي</span>
+            </button>
+            <button onclick="toggleFavorites()" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-all-custom" id="navFavorites">
+                <i class="fa-regular fa-star"></i>
+                <span class="font-medium" id="lblFavorites">المفضلة</span>
+            </button>
+        </nav>
+        <div class="p-4 border-t border-slate-700 space-y-2">
+            <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2 text-red-400 hover:bg-slate-800 rounded-lg transition-all-custom text-sm">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span id="lblLogout">تسجيل الخروج</span>
+            </button>
+            <button onclick="toggleLanguage()" class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-800 transition-all-custom text-sm">
+                <i class="fa-solid fa-globe"></i>
+                <span id="lblLangToggle">English</span>
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full bg-slate-50 relative">
+        <header class="glass-panel border-b border-slate-200 p-4 flex flex-col md:flex-row items-center justify-between gap-4 z-10 shadow-sm">
+            <div class="flex items-center gap-2 text-sm text-slate-500 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 whitespace-nowrap" id="breadcrumbs">
+                <!-- Breadcrumbs injected here -->
+            </div>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <div class="relative w-full sm:w-56 group">
+                    <input type="text" id="searchDate" placeholder="البحث بالتاريخ..." class="w-full ps-10 pe-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white text-sm transition-all shadow-sm cursor-pointer hover:border-slate-300" readonly>
+                    <i class="fa-regular fa-calendar absolute start-3.5 top-3 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none"></i>
+                    <button id="clearDateBtn" onclick="clearSearchDate()" class="absolute end-3.5 top-3 text-slate-400 hover:text-red-500 transition-colors hidden focus:outline-none" title="مسح التاريخ">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="relative w-full sm:w-80 group">
+                    <input type="text" id="searchInput" placeholder="البحث بالاسم أو الوصف..." class="w-full ps-10 pe-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white text-sm transition-all shadow-sm hover:border-slate-300" oninput="renderItems()">
+                    <i class="fa-solid fa-search absolute start-3.5 top-3 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none"></i>
+                </div>
+            </div>
+        </header>
+
+        <div class="p-6 pb-0 flex items-center justify-between">
+            <h2 class="text-2xl font-bold text-slate-800" id="currentViewTitle">الملفات</h2>
+            <div class="flex gap-3">
+                <button onclick="openNewFolderModal()" class="px-4 py-2 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2 transition-all-custom">
+                    <i class="fa-solid fa-folder-plus text-blue-500"></i>
+                    <span id="btnNewFolder">مجلد جديد</span>
+                </button>
+                <button onclick="openUploadModal()" class="px-4 py-2 bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 text-white font-medium flex items-center gap-2 transition-all-custom">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span id="btnUploadFile">رفع ملف</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6" id="contentArea">
+            <div id="emptyState" class="hidden flex-col items-center justify-center h-full text-slate-400">
+                <i class="fa-regular fa-folder-open text-6xl mb-4 text-slate-300"></i>
+                <p class="text-lg" id="lblEmptyState">لا توجد ملفات هنا</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" id="itemsGrid">
+                <!-- Items injected here -->
+            </div>
+        </div>
+    </main>
+
+    <div id="uploadModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 m-4 transform transition-all-custom scale-95 opacity-0" id="uploadModalContent">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-xl font-bold" id="lblUploadTitle">رفع ملف جديد</h3>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <form id="uploadForm" onsubmit="handleUpload(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1" id="lblFileTitle">عنوان الملف</label>
+                    <input type="text" id="fileTitle" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1" id="lblFileDesc">الوصف</label>
+                    <textarea id="fileDesc" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1" id="lblFileDate">التاريخ</label>
+                        <input type="date" id="fileDate" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1" id="lblFileCategory">الفئة</label>
+                        <select id="fileCategory" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+                            <option value="invoice" id="optInvoice">فاتورة</option>
+                            <option value="transfer" id="optTransfer">تحويل</option>
+                            <option value="report" id="optReport">تقرير</option>
+                            <option value="other" id="optOther">أخرى</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1" id="lblFileAttach">الملف (PDF, Excel)</label>
+                    <input type="file" id="fileAttach" accept=".pdf,.xls,.xlsx" required class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-slate-300 rounded-lg">
+                </div>
+                <div class="pt-4 flex justify-end gap-2">
+                    <button type="button" onclick="closeModals()" class="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 font-medium" id="btnCancelUpload">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium" id="btnSubmitUpload">حفظ ورفع</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="folderModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 m-4 transform transition-all-custom scale-95 opacity-0" id="folderModalContent">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-xl font-bold" id="lblFolderTitle">مجلد جديد</h3>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <form id="folderForm" onsubmit="handleNewFolder(event)">
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-slate-700 mb-1" id="lblFolderName">اسم المجلد</label>
+                    <input type="text" id="folderName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeModals()" class="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 font-medium" id="btnCancelFolder">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium" id="btnSubmitFolder">إنشاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="deleteModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 m-4 transform transition-all-custom scale-95 opacity-0" id="deleteModalContent">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-xl font-bold text-red-600" id="lblDeleteTitle">تأكيد الحذف</h3>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="mb-5 text-sm text-slate-600" id="lblDeleteMsg">
+                يرجى إدخال الرقم السري لإتمام عملية الحذف.
+            </div>
+            <form id="deleteForm" onsubmit="handleDelete(event)">
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-slate-700 mb-1" id="lblPin">الرقم السري</label>
+                    <input type="password" id="deletePin" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-red-500 text-center tracking-widest text-lg">
+                    <p id="pinError" class="text-red-500 text-xs mt-1 hidden">الرقم السري غير صحيح</p>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeModals()" class="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 font-medium" id="btnCancelDelete">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium" id="btnSubmitDelete">حذف نهائي</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="previewModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col transform transition-all-custom scale-95 opacity-0" id="previewModalContent">
+            <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-file-pdf text-red-500 text-xl"></i>
+                    <h3 class="text-xl font-bold truncate text-slate-800" id="lblPreviewTitle">معاينة الملف</h3>
+                </div>
+                <button onclick="closePreviewModal()" class="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1 bg-slate-100 p-2 overflow-hidden rounded-b-xl relative" id="previewContainer">
+                <!-- Iframe injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CORRECT_USER = "CANARA2120";
+        const SECRET_PIN = "558165";
+        let datePicker;
+        
+        let state = {
+            lang: 'ar',
+            isLoggedIn: false,
+            currentFolderId: 'root',
+            showFavorites: false,
+            folders: [
+                { id: 'f1', name: 'التقارير السنوية', parentId: 'root' },
+                { id: 'f2', name: 'الفواتير', parentId: 'root' }
+            ],
+            files: [],
+            itemToDelete: null
+        };
+
+        const i18n = {
+            ar: {
+                appTitle: "سحابتي",
+                myFiles: "ملفاتي",
+                favorites: "المفضلة",
+                logout: "تسجيل الخروج",
+                langToggle: "English",
+                searchPlaceholder: "البحث بالاسم أو الوصف...",
+                searchDatePlaceholder: "البحث بالتاريخ...",
+                newFolder: "مجلد جديد",
+                uploadFile: "رفع ملف",
+                emptyState: "لا توجد ملفات أو مجلدات هنا",
+                lblUploadTitle: "رفع ملف جديد",
+                lblFileTitle: "عنوان الملف",
+                lblFileDesc: "الوصف",
+                lblFileDate: "التاريخ",
+                lblFileCategory: "الفئة",
+                lblFileAttach: "الملف (PDF, Excel)",
+                btnCancel: "إلغاء",
+                btnSubmitUpload: "حفظ ورفع",
+                lblFolderTitle: "مجلد جديد",
+                lblFolderName: "اسم المجلد",
+                btnSubmitFolder: "إنشاء",
+                lblDeleteTitle: "تأكيد الحذف",
+                lblDeleteMsg: "يرجى إدخال الرقم السري لإتمام عملية الحذف.",
+                lblPin: "الرقم السري",
+                btnSubmitDelete: "حذف نهائي",
+                categories: { invoice: "فاتورة", transfer: "تحويل", report: "تقرير", other: "أخرى" },
+                rootName: "الرئيسية",
+                pinError: "الرقم السري غير صحيح",
+                previewTitle: "معاينة الملف",
+                loginTitle: "تسجيل الدخول إلى سحابتي",
+                loginSubtitle: "الرجاء إدخال بيانات الاعتماد للمتابعة",
+                lblUsername: "اسم المستخدم",
+                lblLoginPin: "الرقم السري",
+                btnLoginText: "دخول",
+                loginErrorMsg: "اسم المستخدم أو الرقم السري غير صحيح",
+                loginLang: "English"
+            },
+            en: {
+                appTitle: "MyCloud",
+                myFiles: "My Files",
+                favorites: "Favorites",
+                logout: "Logout",
+                langToggle: "العربية",
+                searchPlaceholder: "Search by name or description...",
+                searchDatePlaceholder: "Search by date...",
+                newFolder: "New Folder",
+                uploadFile: "Upload File",
+                emptyState: "No files or folders here",
+                lblUploadTitle: "Upload New File",
+                lblFileTitle: "File Title",
+                lblFileDesc: "Description",
+                lblFileDate: "Date",
+                lblFileCategory: "Category",
+                lblFileAttach: "File (PDF, Excel)",
+                btnCancel: "Cancel",
+                btnSubmitUpload: "Save & Upload",
+                lblFolderTitle: "New Folder",
+                lblFolderName: "Folder Name",
+                btnSubmitFolder: "Create",
+                lblDeleteTitle: "Confirm Delete",
+                lblDeleteMsg: "Please enter the PIN code to proceed.",
+                lblPin: "PIN Code",
+                btnSubmitDelete: "Permanent Delete",
+                categories: { invoice: "Invoice", transfer: "Transfer", report: "Report", other: "Other" },
+                rootName: "Home",
+                pinError: "Incorrect PIN",
+                previewTitle: "Preview File",
+                loginTitle: "Login to MyCloud",
+                loginSubtitle: "Please enter your credentials to continue",
+                lblUsername: "Username",
+                lblLoginPin: "PIN Code",
+                btnLoginText: "Login",
+                loginErrorMsg: "Incorrect username or PIN code",
+                loginLang: "العربية"
+            }
+        };
+
+        window.onload = () => {
+            document.getElementById('fileDate').valueAsDate = new Date();
+            initDatePicker();
+            applyLanguage();
+        };
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const userInput = document.getElementById('loginUser').value.trim();
+            const pinInput = document.getElementById('loginPin').value.trim();
+            const errorEl = document.getElementById('loginError');
+
+            if (userInput === CORRECT_USER && pinInput === SECRET_PIN) {
+                state.isLoggedIn = true;
+                errorEl.classList.add('hidden');
+                document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => {
+                    document.getElementById('loginScreen').style.display = 'none';
+                }, 300);
+                renderItems();
+            } else {
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            state.isLoggedIn = false;
+            document.getElementById('loginUser').value = '';
+            document.getElementById('loginPin').value = '';
+            document.getElementById('loginError').classList.add('hidden');
+            const loginScreen = document.getElementById('loginScreen');
+            loginScreen.style.display = 'flex';
+            setTimeout(() => {
+                loginScreen.classList.remove('opacity-0', 'pointer-events-none');
+            }, 10);
+        }
+
+        function toggleLoginLanguage() {
+            state.lang = state.lang === 'ar' ? 'en' : 'ar';
+            document.documentElement.lang = state.lang;
+            document.documentElement.dir = state.lang === 'ar' ? 'rtl' : 'ltr';
+            applyLanguage();
+        }
+
+        function initDatePicker() {
+            const dateInput = document.getElementById('searchDate');
+            datePicker = flatpickr(dateInput, {
+                locale: state.lang === 'ar' ? "ar" : "default",
+                dateFormat: "Y-m-d",
+                disableMobile: "true",
+                onChange: function(selectedDates, dateStr, instance) {
+                    const clearBtn = document.getElementById('clearDateBtn');
+                    if (dateStr) {
+                        clearBtn.classList.remove('hidden');
+                    } else {
+                        clearBtn.classList.add('hidden');
+                    }
+                    renderItems();
+                }
+            });
+        }
+
+        function clearSearchDate() {
+            if (datePicker) {
+                datePicker.clear();
+            }
+            document.getElementById('clearDateBtn').classList.add('hidden');
+            renderItems();
+        }
+
+        function toggleLanguage() {
+            state.lang = state.lang === 'ar' ? 'en' : 'ar';
+            document.documentElement.lang = state.lang;
+            document.documentElement.dir = state.lang === 'ar' ? 'rtl' : 'ltr';
+            
+            if (datePicker) {
+                datePicker.destroy();
+            }
+            initDatePicker();
+            applyLanguage();
+            renderItems();
+        }
+
+        function applyLanguage() {
+            const t = i18n[state.lang];
+            
+            // Login elements
+            document.getElementById('loginTitle').innerText = t.loginTitle;
+            document.getElementById('loginSubtitle').innerText = t.loginSubtitle;
+            document.getElementById('lblUsername').innerText = t.lblUsername;
+            document.getElementById('lblLoginPin').innerText = t.lblLoginPin;
+            document.getElementById('btnLoginText').innerText = t.btnLoginText;
+            document.getElementById('loginError').innerText = t.loginErrorMsg;
+            document.getElementById('lblLoginLang').innerText = t.loginLang;
+
+            // App elements
+            document.getElementById('appTitle').innerText = t.appTitle;
+            document.getElementById('lblMyFiles').innerText = t.myFiles;
+            document.getElementById('lblFavorites').innerText = t.favorites;
+            document.getElementById('lblLogout').innerText = t.logout;
+            document.getElementById('lblLangToggle').innerText = t.langToggle;
+            
+            document.getElementById('searchInput').placeholder = t.searchPlaceholder;
+            document.getElementById('searchDate').placeholder = t.searchDatePlaceholder;
+            document.getElementById('btnNewFolder').innerText = t.newFolder;
+            document.getElementById('btnUploadFile').innerText = t.uploadFile;
+            document.getElementById('lblEmptyState').innerText = t.emptyState;
+            
+            document.getElementById('lblUploadTitle').innerText = t.lblUploadTitle;
+            document.getElementById('lblFileTitle').innerText = t.lblFileTitle;
+            document.getElementById('lblFileDesc').innerText = t.lblFileDesc;
+            document.getElementById('lblFileDate').innerText = t.lblFileDate;
+            document.getElementById('lblFileCategory').innerText = t.lblFileCategory;
+            document.getElementById('lblFileAttach').innerText = t.lblFileAttach;
+            
+            document.getElementById('btnCancelUpload').innerText = t.btnCancel;
+            document.getElementById('btnSubmitUpload').innerText = t.btnSubmitUpload;
+            
+            document.getElementById('lblFolderTitle').innerText = t.lblFolderTitle;
+            document.getElementById('lblFolderName').innerText = t.lblFolderName;
+            document.getElementById('btnCancelFolder').innerText = t.btnCancel;
+            document.getElementById('btnSubmitFolder').innerText = t.btnSubmitFolder;
+            
+            document.getElementById('lblDeleteTitle').innerText = t.lblDeleteTitle;
+            document.getElementById('lblDeleteMsg').innerText = t.lblDeleteMsg;
+            document.getElementById('lblPin').innerText = t.lblPin;
+            document.getElementById('btnCancelDelete').innerText = t.btnCancel;
+            document.getElementById('btnSubmitDelete').innerText = t.btnSubmitDelete;
+            document.getElementById('pinError').innerText = t.pinError;
+
+            document.getElementById('optInvoice').innerText = t.categories.invoice;
+            document.getElementById('optTransfer').innerText = t.categories.transfer;
+            document.getElementById('optReport').innerText = t.categories.report;
+            document.getElementById('optOther').innerText = t.categories.other;
+            
+            if (state.isLoggedIn) {
+                updateNavigationUI();
+            }
+        }
+
+        function navigateTo(folderId) {
+            state.currentFolderId = folderId;
+            state.showFavorites = false;
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchDate').value = '';
+            updateNavigationUI();
+            renderItems();
+        }
+
+        function toggleFavorites() {
+            state.showFavorites = true;
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchDate').value = '';
+            updateNavigationUI();
+            renderItems();
+        }
+
+        function updateNavigationUI() {
+            const navMyFiles = document.getElementById('navMyFiles');
+            const navFavorites = document.getElementById('navFavorites');
+            const t = i18n[state.lang];
+
+            if (state.showFavorites) {
+                navFavorites.className = "w-full flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-white transition-all-custom";
+                navMyFiles.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-all-custom";
+                document.getElementById('currentViewTitle').innerText = t.favorites;
+                renderBreadcrumbs(true);
+            } else {
+                navMyFiles.className = "w-full flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-white transition-all-custom";
+                navFavorites.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-all-custom";
+                document.getElementById('currentViewTitle').innerText = getFolderName(state.currentFolderId);
+                renderBreadcrumbs(false);
+            }
+        }
+
+        function getFolderName(folderId) {
+            if (folderId === 'root') return i18n[state.lang].rootName;
+            const folder = state.folders.find(f => f.id === folderId);
+            return folder ? folder.name : i18n[state.lang].rootName;
+        }
+
+        function renderBreadcrumbs(isFav) {
+            const bcContainer = document.getElementById('breadcrumbs');
+            bcContainer.innerHTML = '';
+            
+            if (isFav) {
+                bcContainer.innerHTML = `<span><i class="fa-solid fa-star text-yellow-400 mx-1"></i> ${i18n[state.lang].favorites}</span>`;
+                return;
+            }
+
+            let path = [];
+            let curr = state.currentFolderId;
+            
+            while (curr && curr !== 'root') {
+                const folder = state.folders.find(f => f.id === curr);
+                if (folder) {
+                    path.unshift({ id: folder.id, name: folder.name });
+                    curr = folder.parentId;
+                } else {
+                    break;
+                }
+            }
+            
+            path.unshift({ id: 'root', name: i18n[state.lang].rootName });
+
+            path.forEach((p, index) => {
+                const btn = document.createElement('button');
+                btn.className = "hover:text-blue-600 transition-colors";
+                btn.innerText = p.name;
+                btn.onclick = () => navigateTo(p.id);
+                bcContainer.appendChild(btn);
+                
+                if (index < path.length - 1) {
+                    const separator = document.createElement('span');
+                    separator.className = "mx-2 text-slate-300";
+                    separator.innerHTML = state.lang === 'ar' ? '<i class="fa-solid fa-chevron-left text-xs"></i>' : '<i class="fa-solid fa-chevron-right text-xs"></i>';
+                    bcContainer.appendChild(separator);
+                }
+            });
+        }
+
+        function renderItems() {
+            if (!state.isLoggedIn) return;
+            const grid = document.getElementById('itemsGrid');
+            const emptyState = document.getElementById('emptyState');
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+            const searchDate = document.getElementById('searchDate').value;
+            
+            grid.innerHTML = '';
+            
+            let displayFolders = [];
+            let displayFiles = [];
+            const isSearching = searchQuery !== '' || searchDate !== '';
+
+            if (state.showFavorites) {
+                displayFiles = state.files.filter(f => f.isFavorite);
+                if (isSearching) {
+                    displayFiles = filterFiles(displayFiles, searchQuery, searchDate);
+                }
+            } else if (isSearching) {
+                displayFiles = filterFiles(state.files, searchQuery, searchDate);
+                displayFolders = state.folders.filter(f => f.name.toLowerCase().includes(searchQuery));
+            } else {
+                displayFolders = state.folders.filter(f => f.parentId === state.currentFolderId);
+                displayFiles = state.files.filter(f => f.folderId === state.currentFolderId);
+            }
+
+            if (displayFolders.length === 0 && displayFiles.length === 0) {
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+            } else {
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+
+                displayFolders.forEach(folder => {
+                    grid.appendChild(createFolderElement(folder));
+                });
+
+                displayFiles.forEach(file => {
+                    grid.appendChild(createFileElement(file));
+                });
+            }
+        }
+
+        function filterFiles(files, query, date) {
+            return files.filter(f => {
+                const matchQuery = f.title.toLowerCase().includes(query) || (f.desc && f.desc.toLowerCase().includes(query));
+                const matchDate = date === '' || f.date === date;
+                return matchQuery && matchDate;
+            });
+        }
+
+        function createFolderElement(folder) {
+            const div = document.createElement('div');
+            div.className = "bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all-custom cursor-pointer flex flex-col relative group";
+            
+            div.ondragover = (e) => { e.preventDefault(); div.classList.add('drag-over'); };
+            div.ondragleave = (e) => { e.preventDefault(); div.classList.remove('drag-over'); };
+            div.ondrop = (e) => handleDrop(e, folder.id, div);
+            
+            div.innerHTML = `
+                <div class="flex-1 flex flex-col items-center justify-center text-center py-4" onclick="navigateTo('${folder.id}')">
+                    <i class="fa-solid fa-folder text-blue-400 text-5xl mb-3 group-hover:scale-110 transition-transform"></i>
+                    <h3 class="font-bold text-slate-700 w-full truncate px-2" title="${folder.name}">${folder.name}</h3>
+                </div>
+                <button onclick="confirmDelete('folder', '${folder.id}')" class="absolute top-2 left-2 w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all-custom shadow-sm flex items-center justify-center">
+                    <i class="fa-solid fa-trash-can text-sm"></i>
+                </button>
+            `;
+            return div;
+        }
+
+        function createFileElement(file) {
+            const div = document.createElement('div');
+            div.className = "bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all-custom flex flex-col relative group";
+            div.draggable = true;
+            div.ondragstart = (e) => {
+                e.dataTransfer.setData('text/plain', file.id);
+            };
+
+            const isPdf = file.fileName.toLowerCase().endsWith('.pdf');
+            const iconClass = isPdf ? "fa-file-pdf text-red-500" : "fa-file-excel text-green-500";
+            const catName = i18n[state.lang].categories[file.category] || file.category;
+
+            const previewBtn = isPdf ? `
+                <button onclick="previewFile('${file.id}')" class="w-8 h-8 rounded-full bg-slate-50 shadow-sm flex items-center justify-center hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 transition-colors" title="${i18n[state.lang].previewTitle}">
+                    <i class="fa-regular fa-eye text-sm"></i>
+                </button>
+            ` : '';
+
+            div.innerHTML = `
+                <div class="absolute top-2 right-2 flex gap-1 z-10">
+                    <button onclick="toggleFileFavorite('${file.id}')" class="w-8 h-8 rounded-full bg-slate-50 shadow-sm flex items-center justify-center transition-all-custom hover:bg-yellow-50">
+                        <i class="fa-solid fa-star ${file.isFavorite ? 'text-yellow-400' : 'text-slate-300'}"></i>
+                    </button>
+                </div>
+                <div class="absolute top-2 left-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    ${previewBtn}
+                    <button onclick="downloadFile('${file.id}')" class="w-8 h-8 rounded-full bg-slate-50 shadow-sm flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 text-slate-500" title="تحميل">
+                        <i class="fa-solid fa-download text-sm"></i>
+                    </button>
+                    <button onclick="confirmDelete('file', '${file.id}')" class="w-8 h-8 rounded-full bg-slate-50 shadow-sm flex items-center justify-center hover:bg-red-50 hover:text-red-500 text-slate-500" title="حذف">
+                        <i class="fa-solid fa-trash-can text-sm"></i>
+                    </button>
+                </div>
+                
+                <div class="flex-1 flex flex-col items-center pt-8 pb-2 text-center" title="${file.desc}">
+                    <i class="fa-solid ${iconClass} text-5xl mb-3 group-hover:-translate-y-1 transition-transform"></i>
+                    <h3 class="font-bold text-slate-700 w-full truncate px-2 text-sm">${file.title}</h3>
+                    <p class="text-xs text-slate-500 mt-1 truncate w-full" dir="ltr">${file.fileName}</p>
+                </div>
+                <div class="mt-auto border-t border-slate-100 pt-3 flex justify-between items-center text-xs text-slate-400">
+                    <span class="bg-slate-100 px-2 py-1 rounded-md text-slate-600 font-medium">${catName}</span>
+                    <span>${file.date}</span>
+                </div>
+            `;
+            return div;
+        }
+
+        function handleDrop(e, targetFolderId, element) {
+            e.preventDefault();
+            element.classList.remove('drag-over');
+            const fileId = e.dataTransfer.getData('text/plain');
+            if (!fileId) return;
+
+            const file = state.files.find(f => f.id === fileId);
+            if (file && file.folderId !== targetFolderId) {
+                file.folderId = targetFolderId;
+                renderItems();
+            }
+        }
+
+        function openModal(id, contentId) {
+            const modal = document.getElementById(id);
+            const content = document.getElementById(contentId);
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModals() {
+            const modals = [
+                { m: 'uploadModal', c: 'uploadModalContent' },
+                { m: 'folderModal', c: 'folderModalContent' },
+                { m: 'deleteModal', c: 'deleteModalContent' }
+            ];
+            
+            modals.forEach(modalSet => {
+                const modal = document.getElementById(modalSet.m);
+                const content = document.getElementById(modalSet.c);
+                if (!modal.classList.contains('hidden')) {
+                    content.classList.remove('scale-100', 'opacity-100');
+                    content.classList.add('scale-95', 'opacity-0');
+                    setTimeout(() => {
+                        modal.classList.add('hidden');
+                    }, 200);
+                }
+            });
+
+            document.getElementById('uploadForm').reset();
+            document.getElementById('fileDate').valueAsDate = new Date();
+            document.getElementById('folderForm').reset();
+            document.getElementById('deleteForm').reset();
+            document.getElementById('pinError').classList.add('hidden');
+        }
+
+        function openNewFolderModal() {
+            openModal('folderModal', 'folderModalContent');
+            setTimeout(() => document.getElementById('folderName').focus(), 100);
+        }
+
+        function handleNewFolder(e) {
+            e.preventDefault();
+            const name = document.getElementById('folderName').value.trim();
+            if (name) {
+                state.folders.push({
+                    id: 'f_' + Date.now(),
+                    name: name,
+                    parentId: state.currentFolderId
+                });
+                closeModals();
+                renderItems();
+            }
+        }
+
+        function openUploadModal() {
+            openModal('uploadModal', 'uploadModalContent');
+        }
+
+        function handleUpload(e) {
+            e.preventDefault();
+            const title = document.getElementById('fileTitle').value.trim();
+            const desc = document.getElementById('fileDesc').value.trim();
+            const date = document.getElementById('fileDate').value;
+            const category = document.getElementById('fileCategory').value;
+            const fileInput = document.getElementById('fileAttach');
+            
+            if (fileInput.files.length === 0) return;
+            const file = fileInput.files[0];
+            
+            if (!file.name.match(/\.(pdf|xls|xlsx)$/i)) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const base64Data = event.target.result;
+                state.files.push({
+                    id: 'file_' + Date.now(),
+                    title: title,
+                    desc: desc,
+                    date: date,
+                    category: category,
+                    fileName: file.name,
+                    dataUrl: base64Data,
+                    folderId: state.currentFolderId,
+                    isFavorite: false
+                });
+                closeModals();
+                renderItems();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function toggleFileFavorite(id) {
+            const file = state.files.find(f => f.id === id);
+            if (file) {
+                file.isFavorite = !file.isFavorite;
+                renderItems();
+            }
+        }
+
+        function downloadFile(id) {
+            const file = state.files.find(f => f.id === id);
+            if (file && file.dataUrl) {
+                const a = document.createElement('a');
+                a.href = file.dataUrl;
+                a.download = file.fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        }
+
+        function previewFile(id) {
+            const file = state.files.find(f => f.id === id);
+            if (file && file.dataUrl && file.fileName.toLowerCase().endsWith('.pdf')) {
+                document.getElementById('lblPreviewTitle').innerText = file.title;
+                const container = document.getElementById('previewContainer');
+                container.innerHTML = `<iframe src="${file.dataUrl}#toolbar=0" class="w-full h-full border-0 rounded-lg shadow-inner bg-white"></iframe>`;
+                
+                const modal = document.getElementById('previewModal');
+                const content = document.getElementById('previewModalContent');
+                modal.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    content.classList.remove('scale-95', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            }
+        }
+
+        function closePreviewModal() {
+            const modal = document.getElementById('previewModal');
+            const content = document.getElementById('previewModalContent');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.getElementById('previewContainer').innerHTML = '';
+            }, 200);
+        }
+
+        function confirmDelete(type, id) {
+            state.itemToDelete = { type, id };
+            document.getElementById('pinError').classList.add('hidden');
+            openModal('deleteModal', 'deleteModalContent');
+            setTimeout(() => document.getElementById('deletePin').focus(), 100);
+        }
+
+        function handleDelete(e) {
+            e.preventDefault();
+            const pin = document.getElementById('deletePin').value;
+            
+            if (pin !== SECRET_PIN) {
+                document.getElementById('pinError').classList.remove('hidden');
+                return;
+            }
+            
+            if (state.itemToDelete) {
+                if (state.itemToDelete.type === 'file') {
+                    state.files = state.files.filter(f => f.id !== state.itemToDelete.id);
+                } else if (state.itemToDelete.type === 'folder') {
+                    deleteFolderRecursive(state.itemToDelete.id);
+                }
+            }
+            
+            closeModals();
+            renderItems();
+        }
+
+        function deleteFolderRecursive(folderId) {
+            state.files = state.files.filter(f => f.folderId !== folderId);
+            const childFolders = state.folders.filter(f => f.parentId === folderId);
+            childFolders.forEach(child => deleteFolderRecursive(child.id));
+            state.folders = state.folders.filter(f => f.id !== folderId);
+        }
+    </script>
+</body>
+</html>
