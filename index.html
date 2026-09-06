@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
             font-family: 'Tajawal', 'Inter', sans-serif;
@@ -903,6 +904,24 @@
             childFolders.forEach(child => deleteFolderRecursive(child.id));
             state.folders = state.folders.filter(f => f.id !== folderId);
         }
+        const { createClient } = supabase;
+const SUPABASE_URL = 'https://tcydomjjtxrwwcbzwxbq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_wgu7syPo4VMKHt5ybzxP6w_NSoS02fQ';
+const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function uploadToSupabase(file) {
+  const { data, error } = await _supabase.storage
+    .from('files')
+    .upload(file.name, file);
+
+  if (error) {
+    console.error('خطأ في الرفع:', error.message);
+    alert('فشل رفع الملف!');
+  } else {
+    console.log('تم الرفع بنجاح:', data);
+    alert('تم رفع الملف إلى التخزين السحابي بنجاح!');
+  }
+}
     </script>
 </body>
 </html>
