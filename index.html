@@ -375,12 +375,11 @@
             }
         };
 
-      window.onload = async () => {
+  window.onload = async () => {
     document.getElementById('fileDate').valueAsDate = new Date();
     initDatePicker();
     applyLanguage();
 
-    // جلب الملفات من سلة Supabase Storage
     try {
         const { data, error } = await _supabase.storage.from('files').list('');
         if (!error && data) {
@@ -402,9 +401,11 @@
                 };
             });
             renderItems();
+        } else {
+            console.error('Supabase list error:', error);
         }
     } catch (err) {
-        console.error('Error loading files on startup:', err);
+        console.error('Error fetching files on load:', err);
     }
 };
 
