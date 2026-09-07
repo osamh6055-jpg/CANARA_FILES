@@ -419,10 +419,8 @@
         state.isLoggedIn = true;
         errorEl.classList.add('hidden');
         
-        try {
-            const { data, error } = await _supabase.storage.from('files').list('');
-          if (!error && data) {
-        // تصفية العناصر لاستبعاد ملف النظام الوهمي (.emptyFolderPlaceholder)
+ const { data, error } = await _supabase.storage.from('files').list('');
+      if (!error && data) {
         const validFiles = data.filter(file => file.name !== '.emptyFolderPlaceholder');
         
         state.files = validFiles.map(file => {
@@ -440,10 +438,6 @@
           };
         });
       }
-            }
-        } catch (err) {
-            console.error('Error fetching files:', err);
-        }
 
         document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
         setTimeout(() => {
