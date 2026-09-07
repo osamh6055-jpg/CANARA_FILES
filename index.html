@@ -421,21 +421,25 @@
         
         try {
             const { data, error } = await _supabase.storage.from('files').list('');
-            if (!error && data) {
-                state.files = data.map(file => {
-                    const { data: publicUrlData } = _supabase.storage.from('files').getPublicUrl(file.name);
-                    return {
-                        id: 'file_' + file.id,
-                        title: file.name.split('_').slice(1).join('_') || file.name,
-                        desc: '',
-                        date: file.created_at ? file.created_at.split('T')[0] : '',
-                        category: 'other',
-                        fileName: file.name,
-                        dataUrl: publicUrlData.publicUrl,
-                        folderId: null,
-                        isFavorite: false
-                    };
-                });
+          if (!error && data) {
+        // تصفية العناصر لاستبعاد ملف النظام الوهمي (.emptyFolderPlaceholder)
+        const validFiles = data.filter(file => file.name !== '.emptyFolderPlaceholder');
+        
+        state.files = validFiles.map(file => {
+          const { data: publicUrlData } = _supabase.storage.from('files').getPublicUrl(file.name);
+          return {
+            id: 'file_' + file.id,
+            title: file.name.split('_').slice(1).join('_') || file.name,
+            desc: '',
+            date: file.created_at ? file.created_at.split('T')[0] : '',
+            category: 'other',
+            fileName: file.name,
+            dataUrl: publicUrlData.publicUrl,
+            folderId: null,
+            isFavorite: false
+          };
+        });
+      }
             }
         } catch (err) {
             console.error('Error fetching files:', err);
