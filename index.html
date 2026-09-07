@@ -408,21 +408,18 @@
     }
 };
 
-        function handleLogin(e) {
-            e.preventDefault();
-            const userInput = document.getElementById('loginUser').value.trim();
-            const pinInput = document.getElementById('loginPin').value.trim();
-            const errorEl = document.getElementById('loginError');
+      async function handleLogin(e) {
+    e.preventDefault();
+    const userInput = document.getElementById('loginUser').value.trim();
+    const pinInput = document.getElementById('loginPin').value.trim();
+    const errorEl = document.getElementById('loginError');
 
-            if (userInput === CORRECT_USER && pinInput === SECRET_PIN) {
-                state.isLoggedIn = true;
-                errorEl.classList.add('hidden');
-                document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
-                setTimeout(() => {
-                    document.getElementById('loginScreen').style.display = 'none';
-                }, 300);
-                renderItems();
-                _supabase.storage.from('files').list('').then(({ data, error }) => {
+    if (userInput === CORRECT_USER && pinInput === SECRET_PIN) {
+        state.isLoggedIn = true;
+        errorEl.classList.add('hidden');
+        
+        try {
+            const { data, error } = await _supabase.storage.from('files').list('');
             if (!error && data) {
                 state.files = data.map(file => {
                     const { data: publicUrlData } = _supabase.storage.from('files').getPublicUrl(file.name);
@@ -438,13 +435,21 @@
                         isFavorite: false
                     };
                 });
-                renderItems();
             }
-        });
-ٍ            } else {
-                errorEl.classList.remove('hidden');
-            }
+        } catch (err) {
+            console.error('Error fetching files:', err);
         }
+
+        document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+            document.getElementById('loginScreen').style.display = 'none';
+        }, 300);
+        
+        renderItems();
+    } else {
+        errorEl.classList.remove('hidden');
+    }
+}
 
         function logout() {
             state.isLoggedIn = false;
