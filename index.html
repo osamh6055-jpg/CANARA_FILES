@@ -667,11 +667,11 @@
             } else if (isSearching) {
                 displayFiles = filterFiles(state.files, searchQuery, searchDate);
                 displayFolders = state.folders.filter(f => f.name.toLowerCase().includes(searchQuery));
-            } else {
-                displayFolders = state.folders.filter(f => f.parentId === state.currentFolderId);
-                displayFiles = state.files.filter(f => f.folderId === state.currentFolderId);
-            }
-
+           } else {
+        displayFolders = state.folders.filter(f => !f.parentId);
+        // عرض الملفات التي تكون في الجذر (folderId يساوي null أو undefined) بالإضافة للملفات داخل المجلد الحالي
+        displayFiles = state.files.filter(f => f.folderId === state.currentFolderId || (state.currentFolderId === null && !f.folderId));
+    }
             if (displayFolders.length === 0 && displayFiles.length === 0) {
                 emptyState.classList.remove('hidden');
                 emptyState.classList.add('flex');
