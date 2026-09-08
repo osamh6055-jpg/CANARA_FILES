@@ -4,13 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سحابة التخزين | Cloud Storage</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Flatpickr for modern date picking -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/ar.js"></script>
+    <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
@@ -213,7 +217,7 @@
                 </div>
                 <div class="pt-4 flex justify-end gap-2">
                     <button type="button" onclick="closeModals()" class="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 font-medium" id="btnCancelUpload">إلغاء</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium" id="btnSubmitUpload">حفظ ورفع</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors" id="btnSubmitUpload">حفظ ورفع</button>
                 </div>
             </form>
         </div>
@@ -279,6 +283,11 @@
     </div>
 
     <script>
+        const SUPABASE_URL = 'https://tcydomjjtxrwwcbzwxbq.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_wgu7syPo4VMKHt5ybzxP6w_NSoS02fQ';
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
         const CORRECT_USER = "CANARA2120";
         const SECRET_PIN = "558165";
         let datePicker;
@@ -375,84 +384,140 @@
             }
         };
 
-  window.onload = async () => {
-    document.getElementById('fileDate').valueAsDate = new Date();
-    initDatePicker();
-    applyLanguage();
-
-    try {
-        const { data, error } = await _supabase.storage.from('files').list('');
-        if (!error && data) {
-            state.files = data.map(file => {
-                const { data: publicUrlData } = _supabase.storage
-                    .from('files')
-                    .getPublicUrl(file.name);
-
-                return {
-                    id: 'file_' + file.id,
-                    title: file.name.split('_').slice(1).join('_') || file.name,
-                    desc: '',
-                    date: file.created_at ? file.created_at.split('T')[0] : '',
-                    category: 'other',
-                    fileName: file.name,
-                    dataUrl: publicUrlData.publicUrl,
-                    folderId: null,
-                    isFavorite: false
-                };
-            });
-            renderItems();
-        } else {
-            console.error('Supabase list error:', error);
-        }
-    } catch (err) {
-        console.error('Error fetching files on load:', err);
-    }
-};
-async function handleLogin(e) {
-    e.preventDefault();
-    const userInput = document.getElementById('loginUser').value.trim();
-    const pinInput = document.getElementById('loginPin').value.trim();
-    const errorEl = document.getElementById('loginError');
-
-    if (userInput === CORRECT_USER && pinInput === SECRET_PIN) {
-        state.isLoggedIn = true;
-        errorEl.classList.add('hidden');
-
-        const { data, error } = await _supabase.storage.from('files').list('');
-        if (!error && data) {
-            const validFiles = data.filter(file => file.name !== '.emptyFolderPlaceholder');
-
-            state.files = validFiles.map(file => {
-                const { data: publicUrlData } = _supabase.storage
-                    .from('files')
-                    .getPublicUrl(file.name);
-                return {
-                    id: 'file_' + (file.id || Math.random()),
-                    title: file.name,
-                    desc: '',
-                    date: file.created_at ? file.created_at.split('T')[0] : '',
-                    category: 'other',
-                    fileName: file.name,
-                    dataUrl: publicUrlData.publicUrl,
-                    folderId: null,
-                    isFavorite: false
-                };
-            });
-            
-            renderItems();
-        } else {
-            console.error('Supabase list error:', error);
+        function saveMetadata() {
+            try {
+                const metadataMap = {};
+                state.files.forEach(file => {
+                    metadataMap[file.storageName] = {
+                        id: file.id,
+                        title: file.title,
+                        desc: file.desc,
+                        date: file.date,
+                        category: file.category,
+                        folderId: file.folderId,
+                        isFavorite: file.isFavorite
+                    };
+                });
+                localStorage.setItem('canara_files_metadata', JSON.stringify(metadataMap));
+            } catch(e) {
+                console.error('Error saving metadata:', e);
+            }
         }
 
-        document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
-        setTimeout(() => {
-            document.getElementById('loginScreen').style.display = 'none';
-        }, 300);
+        function loadMetadata() {
+            try {
+                const saved = localStorage.getItem('canara_files_metadata');
+                return saved ? JSON.parse(saved) : {};
+            } catch(e) {
+                return {};
+            }
+        }
 
-    } else {
-        errorEl.classList.remove('hidden');
-    }
-}
+        function saveFolders() {
+            try {
+                localStorage.setItem('canara_folders', JSON.stringify(state.folders));
+            } catch(e) {}
+        }
+
+        function loadFolders() {
+            try {
+                const saved = localStorage.getItem('canara_folders');
+                if (saved) {
+                    state.folders = JSON.parse(saved);
+                } else {
+                    saveFolders();
+                }
+            } catch(e) {}
+        }
+
+        async function fetchSupabaseFiles() {
+            try {
+                const { data, error } = await _supabase.storage.from('files').list('');
+                if (error) {
+                    console.error('Supabase storage list error:', error);
+                    return;
+                }
+
+                if (data) {
+                    const savedMeta = loadMetadata();
+                    const validFiles = data.filter(file => file.name !== '.emptyFolderPlaceholder');
+
+                    state.files = validFiles.map(file => {
+                        const { data: publicUrlData } = _supabase.storage
+                            .from('files')
+                            .getPublicUrl(file.name);
+
+                        const meta = savedMeta[file.name] || {};
+
+                        let cleanTitle = file.name;
+                        if (file.name.includes('_')) {
+                            const parts = file.name.split('_');
+                            if (!isNaN(parts[0])) {
+                                cleanTitle = parts.slice(1).join('_');
+                            }
+                        }
+
+                        return {
+                            id: meta.id || ('file_' + (file.id || Math.random().toString(36).substr(2, 9))),
+                            title: meta.title || cleanTitle,
+                            desc: meta.desc || '',
+                            date: meta.date || (file.created_at ? file.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+                            category: meta.category || 'other',
+                            fileName: cleanTitle,
+                            storageName: file.name,
+                            dataUrl: publicUrlData.publicUrl,
+                            folderId: meta.folderId || 'root',
+                            isFavorite: meta.isFavorite || false
+                        };
+                    });
+
+                    saveMetadata();
+                }
+            } catch (err) {
+                console.error('Error fetching files from Supabase:', err);
+            }
+        }
+
+        window.onload = async () => {
+            loadFolders();
+            document.getElementById('fileDate').valueAsDate = new Date();
+            initDatePicker();
+            applyLanguage();
+            await fetchSupabaseFiles();
+        };
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const userInput = document.getElementById('loginUser').value.trim();
+            const pinInput = document.getElementById('loginPin').value.trim();
+            const errorEl = document.getElementById('loginError');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            if (userInput === CORRECT_USER && pinInput === SECRET_PIN) {
+                state.isLoggedIn = true;
+                errorEl.classList.add('hidden');
+
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mx-1"></i> جارٍ التحميل...';
+                }
+
+                await fetchSupabaseFiles();
+
+                document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => {
+                    document.getElementById('loginScreen').style.display = 'none';
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = `<span id="btnLoginText">${i18n[state.lang].btnLoginText}</span> <i class="fa-solid fa-arrow-left rtl:rotate-180 text-xs"></i>`;
+                    }
+                }, 300);
+
+                renderItems();
+            } else {
+                errorEl.classList.remove('hidden');
+            }
+        }
 
         function logout() {
             state.isLoggedIn = false;
@@ -515,7 +580,6 @@ async function handleLogin(e) {
         function applyLanguage() {
             const t = i18n[state.lang];
             
-            // Login elements
             document.getElementById('loginTitle').innerText = t.loginTitle;
             document.getElementById('loginSubtitle').innerText = t.loginSubtitle;
             document.getElementById('lblUsername').innerText = t.lblUsername;
@@ -524,7 +588,6 @@ async function handleLogin(e) {
             document.getElementById('loginError').innerText = t.loginErrorMsg;
             document.getElementById('lblLoginLang').innerText = t.loginLang;
 
-            // App elements
             document.getElementById('appTitle').innerText = t.appTitle;
             document.getElementById('lblMyFiles').innerText = t.myFiles;
             document.getElementById('lblFavorites').innerText = t.favorites;
@@ -671,11 +734,16 @@ async function handleLogin(e) {
             } else if (isSearching) {
                 displayFiles = filterFiles(state.files, searchQuery, searchDate);
                 displayFolders = state.folders.filter(f => f.name.toLowerCase().includes(searchQuery));
-           } else {
-        displayFolders = state.folders.filter(f => !f.parentId);
-        // عرض الملفات التي تكون في الجذر (folderId يساوي null أو undefined) بالإضافة للملفات داخل المجلد الحالي
-        displayFiles = state.files.filter(f => f.folderId === state.currentFolderId || (state.currentFolderId === null && !f.folderId));
-    }
+            } else {
+                displayFolders = state.folders.filter(f => 
+                    f.parentId === state.currentFolderId || (state.currentFolderId === 'root' && (!f.parentId || f.parentId === 'root'))
+                );
+                
+                displayFiles = state.files.filter(f => 
+                    f.folderId === state.currentFolderId || (state.currentFolderId === 'root' && (!f.folderId || f.folderId === 'root'))
+                );
+            }
+
             if (displayFolders.length === 0 && displayFiles.length === 0) {
                 emptyState.classList.remove('hidden');
                 emptyState.classList.add('flex');
@@ -777,6 +845,7 @@ async function handleLogin(e) {
             const file = state.files.find(f => f.id === fileId);
             if (file && file.folderId !== targetFolderId) {
                 file.folderId = targetFolderId;
+                saveMetadata();
                 renderItems();
             }
         }
@@ -831,6 +900,7 @@ async function handleLogin(e) {
                     name: name,
                     parentId: state.currentFolderId
                 });
+                saveFolders();
                 closeModals();
                 renderItems();
             }
@@ -841,53 +911,72 @@ async function handleLogin(e) {
         }
 
         async function handleUpload(e) {
-    e.preventDefault();
-    const title = document.getElementById('fileTitle').value.trim();
-    const desc = document.getElementById('fileDesc').value.trim();
-    const date = document.getElementById('fileDate').value.trim();
-    const category = document.getElementById('fileCategory').value;
-    const fileInput = document.getElementById('fileAttach');
+            e.preventDefault();
+            const titleInput = document.getElementById('fileTitle');
+            const descInput = document.getElementById('fileDesc');
+            const dateInput = document.getElementById('fileDate');
+            const categoryInput = document.getElementById('fileCategory');
+            const fileInput = document.getElementById('fileAttach');
+            const submitBtn = document.getElementById('btnSubmitUpload');
 
-    if (fileInput.files.length === 0) return;
-    const file = fileInput.files[0];
+            if (fileInput.files.length === 0) return;
+            const file = fileInput.files[0];
 
-    // رفع الملف إلى Supabase Storage مباشرة
-    const { data, error } = await _supabase.storage
-        .from('files')
-        .upload(Date.now() + '_' + file.name, file);
+            const originalBtnText = submitBtn.innerText;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mx-1"></i> جارٍ الرفع...';
 
-    if (error) {
-        console.error('خطأ في الرفع:', error.message);
-        alert('فشل رفع الملف إلى التخزين السحابي!');
-        return;
-    }
+            try {
+                const timestamp = Date.now();
+                const storageFileName = `${timestamp}_${file.name}`;
 
-    // جلب الرابط العام للملف المرفوع
-    const { data: publicUrlData } = _supabase.storage
-        .from('files')
-        .getPublicUrl(data.path);
+                const { data, error } = await _supabase.storage
+                    .from('files')
+                    .upload(storageFileName, file, { cacheControl: '3600', upsert: true });
 
-    state.files.push({
-        id: 'file_' + Date.now(),
-        title: title,
-        desc: desc,
-        date: date,
-        category: category,
-        fileName: file.name,
-        dataUrl: publicUrlData.publicUrl, // تخزين رابط Supabase المباشر
-        folderId: state.currentFolderId,
-        isFavorite: false
-    });
+                if (error) {
+                    console.error('Upload error:', error.message);
+                    alert('فشل رفع الملف إلى التخزين السحابي: ' + error.message);
+                    return;
+                }
 
-    closeModals();
-    renderItems();
-    document.getElementById('uploadForm').reset();
-}
+                const { data: publicUrlData } = _supabase.storage
+                    .from('files')
+                    .getPublicUrl(storageFileName);
+
+                const newFileObj = {
+                    id: 'file_' + timestamp,
+                    title: titleInput.value.trim() || file.name,
+                    desc: descInput.value.trim(),
+                    date: dateInput.value.trim() || new Date().toISOString().split('T')[0],
+                    category: categoryInput.value,
+                    fileName: file.name,
+                    storageName: storageFileName,
+                    dataUrl: publicUrlData.publicUrl,
+                    folderId: state.currentFolderId || 'root',
+                    isFavorite: false
+                };
+
+                state.files.push(newFileObj);
+                saveMetadata();
+
+                closeModals();
+                renderItems();
+                document.getElementById('uploadForm').reset();
+            } catch (err) {
+                console.error('Error during upload:', err);
+                alert('حدث خطأ غير متوقع أثناء الرفع.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = originalBtnText;
+            }
+        }
 
         function toggleFileFavorite(id) {
             const file = state.files.find(f => f.id === id);
             if (file) {
                 file.isFavorite = !file.isFavorite;
+                saveMetadata();
                 renderItems();
             }
         }
@@ -940,7 +1029,7 @@ async function handleLogin(e) {
             setTimeout(() => document.getElementById('deletePin').focus(), 100);
         }
 
-        function handleDelete(e) {
+        async function handleDelete(e) {
             e.preventDefault();
             const pin = document.getElementById('deletePin').value;
             
@@ -951,9 +1040,20 @@ async function handleLogin(e) {
             
             if (state.itemToDelete) {
                 if (state.itemToDelete.type === 'file') {
+                    const file = state.files.find(f => f.id === state.itemToDelete.id);
+                    if (file) {
+                        try {
+                            await _supabase.storage.from('files').remove([file.storageName]);
+                        } catch (err) {
+                            console.error('Error removing file from Supabase storage:', err);
+                        }
+                    }
                     state.files = state.files.filter(f => f.id !== state.itemToDelete.id);
+                    saveMetadata();
                 } else if (state.itemToDelete.type === 'folder') {
                     deleteFolderRecursive(state.itemToDelete.id);
+                    saveFolders();
+                    saveMetadata();
                 }
             }
             
@@ -967,26 +1067,6 @@ async function handleLogin(e) {
             childFolders.forEach(child => deleteFolderRecursive(child.id));
             state.folders = state.folders.filter(f => f.id !== folderId);
         }
-        const { createClient } = supabase;
-const SUPABASE_URL = 'https://tcydomjjtxrwwcbzwxbq.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_wgu7syPo4VMKHt5ybzxP6w_NSoS02fQ';
-const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-async function uploadToSupabase(file) {
-  const { data, error } = await _supabase.storage
-    .from('files')
-    .upload(file.name, file);
-
-  if (error) {
-    console.error('خطأ في الرفع:', error.message);
-    alert('فشل رفع الملف!');
-  } else {
-    console.log('تم الرفع بنجاح:', data);
-    alert('تم رفع الملف إلى التخزين السحابي بنجاح!');
-  }
-}
-window.handleLogin = handleLogin;    
-document.querySelector('form').addEventListener('submit', handleLogin);        
     </script>
 </body>
 </html>
