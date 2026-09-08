@@ -408,8 +408,7 @@
         console.error('Error fetching files on load:', err);
     }
 };
-
-   async function handleLogin(e) {
+async function handleLogin(e) {
     e.preventDefault();
     const userInput = document.getElementById('loginUser').value.trim();
     const pinInput = document.getElementById('loginPin').value.trim();
@@ -428,7 +427,7 @@
                     .from('files')
                     .getPublicUrl(file.name);
                 return {
-                    id: file.id || 'file_' + Math.random(),
+                    id: 'file_' + (file.id || Math.random()),
                     title: file.name,
                     desc: '',
                     date: file.created_at ? file.created_at.split('T')[0] : '',
@@ -438,12 +437,6 @@
                     folderId: null,
                     isFavorite: false
                 };
-            });
-            
-            renderItems();
-        } else {
-            console.error('Supabase list error:', error);
-        }
             });
             
             renderItems();
