@@ -437,7 +437,24 @@
             isFavorite: false
           };
         });
-      }
+     state.files = validFiles.map(file => {
+                const { data: publicUrlData } = _supabase.storage
+                    .from('files')
+                    .getPublicUrl(file.name);
+                return {
+                    id: 'file_' + file.id,
+                    title: file.name.split('_').slice(1).join('_') || file.name,
+                    desc: '',
+                    date: file.created_at ? file.created_at.split('T')[0] : '',
+                    category: 'other',
+                    fileName: file.name,
+                    dataUrl: publicUrlData.publicUrl,
+                    folderId: null,
+                    isFavorite: false
+                };
+            });
+            renderItems();
+        } }
 
         document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
         setTimeout(() => {
