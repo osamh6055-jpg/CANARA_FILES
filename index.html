@@ -428,8 +428,8 @@
                     .from('files')
                     .getPublicUrl(file.name);
                 return {
-                    id: 'file_' + file.id,
-                    title: file.name.split('_').slice(1).join('_') || file.name,
+                    id: file.id || 'file_' + Math.random(),
+                    title: file.name,
                     desc: '',
                     date: file.created_at ? file.created_at.split('T')[0] : '',
                     category: 'other',
@@ -438,6 +438,12 @@
                     folderId: null,
                     isFavorite: false
                 };
+            });
+            
+            renderItems();
+        } else {
+            console.error('Supabase list error:', error);
+        }
             });
             
             renderItems();
