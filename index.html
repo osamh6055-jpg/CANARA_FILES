@@ -684,8 +684,8 @@
                 displayFiles = filterFiles(state.files, searchQuery, searchDate);
                 displayFolders = state.folders.filter(f => f.name.toLowerCase().includes(searchQuery));
             } else {
-                displayFolders = state.folders.filter(f => !f.parentId);
-                displayFiles = state.files.filter(f => f.folderId === state.currentFolderId || (state.currentFolderId === null && !f.folderId));
+                displayFolders = state.folders.filter(f => f.parentId === state.currentFolderId);
+                displayFiles = state.files.filter(f => f.folderId === state.currentFolderId || (state.currentFolderId === 'root' && (!f.folderId || f.folderId === 'root')));
             }
 
             if (displayFolders.length === 0 && displayFiles.length === 0) {
@@ -845,6 +845,7 @@
                 });
                 closeModals();
                 renderItems();
+                showToast(state.lang === 'ar' ? 'تم إنشاء المجلد بنجاح' : 'Folder created successfully', 'success');
             }
         }
 
