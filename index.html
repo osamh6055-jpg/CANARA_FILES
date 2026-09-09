@@ -433,17 +433,19 @@
             try {
                 // Fetch folders from Supabase table 'app_folders'
                 const { data: foldersData, error: folderError } = await _supabase.from('app_folders').select('*');
-                if (!folderError && foldersData) {
+                if (!folderError && foldersData && foldersData.length > 0) {
                     state.folders = foldersData.map(f => ({
                         id: f.folder_id,
                         name: f.name,
                         parentId: f.parent_id || 'root'
                     }));
-                } else if (state.folders.length === 0) {
-                    state.folders = [
-                        { id: 'f1', name: 'التقارير السنوية', parentId: 'root' },
-                        { id: 'f2', name: 'الفواتير', parentId: 'root' }
-                    ];
+                } else {
+                    // Fallback or initialize default root folder if empty or error
+                    if (state.folders.length === 0) {
+                        state.folders = [
+                            { id: 'f_default_2026', name: '2026', parentId: 'root' }
+                        ];
+                    }
                     for (const f of state.folders) {
                         await _supabase.from('app_folders').upsert({
                             folder_id: f.id,
@@ -484,8 +486,8 @@
                             isFavorite: saved.is_favorite || false
                         };
                     });
-                    renderItems();
                 }
+                renderItems();
             } catch (err) {
                 console.error('Error loading data from cloud:', err);
             }
@@ -508,7 +510,6 @@
                 state.isLoggedIn = true;
                 errorEl.classList.add('hidden');
 
-                // Refresh data from cloud upon successful login
                 await loadDataFromCloud();
 
                 document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
@@ -925,7 +926,10 @@
                 const folder = state.folders.find(f => f.id === editId);
                 if (folder) {
                     folder.name = name;
-                    await _supabase.from('app_folders').update({ name: name }).eq('folder_id', editId);
+                    const { error } = await _supabase.from('app_folders').update({ name: name }).eq('folder_id', editId);
+                    if (error) {
+                        console.error('Supabase folder update error:', error);
+                    }
                     showToast(state.lang === 'ar' ? 'تم تحديث اسم المجلد بنجاح' : 'Folder updated successfully', 'success');
                 }
             } else {
@@ -936,11 +940,14 @@
                     parentId: state.currentFolderId
                 };
                 state.folders.push(newFolder);
-                await _supabase.from('app_folders').insert({
+                const { error } = await _supabase.from('app_folders').insert({
                     folder_id: newFolder.id,
                     name: newFolder.name,
                     parent_id: newFolder.parentId
                 });
+                if (error) {
+                    console.error('Supabase folder insert error:', error);
+                }
                 showToast(state.lang === 'ar' ? 'تم إنشاء المجلد بنجاح' : 'Folder created successfully', 'success');
             }
 
@@ -969,7 +976,10 @@
             if (file) {
                 file.title = title;
                 file.desc = desc;
-                await _supabase.from('app_files_meta').update({ title: title, desc: desc }).eq('file_id', fileId);
+                const { error } = await _supabase.from('app_files_meta').update({ title: title, desc: desc }).eq('file_id', fileId);
+                if (error) {
+                    console.error('Supabase file meta update error:', error);
+                }
                 showToast(state.lang === 'ar' ? 'تم تعديل الملف بنجاح' : 'File updated successfully', 'success');
             }
 
@@ -1033,7 +1043,7 @@
                 state.files.push(fileObj);
 
                 // Save metadata to Supabase table
-                await _supabase.from('app_files_meta').insert({
+                const { error: metaError } = await _supabase.from('app_files_meta').insert({
                     file_id: fileObj.id,
                     title: fileObj.title,
                     desc: fileObj.desc,
@@ -1044,6 +1054,10 @@
                     folder_id: fileObj.folderId,
                     is_favorite: fileObj.isFavorite
                 });
+
+                if (metaError) {
+                    console.error('Supabase meta insert error:', metaError);
+                }
 
                 closeModals();
                 renderItems();
@@ -1172,7 +1186,7 @@
             for (const child of childFolders) {
                 await deleteFolderRecursive(child.id);
             }
-            state.folders = state.folders.folders ? state.folders.filter(f => f.id !== folderId) : state.folders.filter(f => f.id !== folderId);
+            state.folders = state.folders.filter(f => f.id !== folderId);
             await _supabase.from('app_folders').delete().eq('folder_id', folderId);
         }
 
