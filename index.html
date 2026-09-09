@@ -229,7 +229,8 @@
                 <h3 class="text-xl font-bold" id="lblFolderTitle">مجلد جديد</h3>
                 <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-            <form id="folderForm" onsubmit="handleNewFolder(event)">
+            <form id="folderForm" onsubmit="handleFolderSubmit(event)">
+                <input type="hidden" id="folderEditId" value="">
                 <div class="mb-5">
                     <label class="block text-sm font-medium text-slate-700 mb-1" id="lblFolderName">اسم المجلد</label>
                     <input type="text" id="folderName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
@@ -237,6 +238,31 @@
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="closeModals()" class="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 font-medium" id="btnCancelFolder">إلغاء</button>
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium" id="btnSubmitFolder">إنشاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit File Modal -->
+    <div id="editFileModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 m-4 transform transition-all-custom scale-95 opacity-0" id="editFileModalContent">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-xl font-bold" id="lblEditFileTitle">تعديل الملف</h3>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <form id="editFileForm" onsubmit="handleEditFileSubmit(event)">
+                <input type="hidden" id="editFileId" value="">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-700 mb-1" id="lblEditFileTitleLabel">عنوان الملف</label>
+                    <input type="text" id="editFileTitleInput" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-700 mb-1" id="lblEditFileDescLabel">الوصف</label>
+                    <textarea id="editFileDescInput" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"></textarea>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeModals()" class="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 font-medium" id="btnCancelEditFile">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium" id="btnSubmitEditFile">حفظ التعديلات</button>
                 </div>
             </form>
         </div>
@@ -307,10 +333,7 @@
             isLoggedIn: false,
             currentFolderId: 'root',
             showFavorites: false,
-            folders: [
-                { id: 'f1', name: 'التقارير السنوية', parentId: 'root' },
-                { id: 'f2', name: 'الفواتير', parentId: 'root' }
-            ],
+            folders: [],
             files: [],
             itemToDelete: null
         };
@@ -336,8 +359,14 @@
                 btnCancel: "إلغاء",
                 btnSubmitUpload: "حفظ ورفع",
                 lblFolderTitle: "مجلد جديد",
+                lblEditFolderTitle: "تعديل اسم المجلد",
                 lblFolderName: "اسم المجلد",
                 btnSubmitFolder: "إنشاء",
+                btnUpdateFolder: "حفظ",
+                lblEditFileTitle: "تعديل الملف",
+                lblEditFileTitleLabel: "عنوان الملف",
+                lblEditFileDescLabel: "الوصف",
+                btnSubmitEditFile: "حفظ التعديلات",
                 lblDeleteTitle: "تأكيد الحذف",
                 lblDeleteMsg: "يرجى إدخال الرقم السري لإتمام عملية الحذف.",
                 lblPin: "الرقم السري",
@@ -374,8 +403,14 @@
                 btnCancel: "Cancel",
                 btnSubmitUpload: "Save & Upload",
                 lblFolderTitle: "New Folder",
+                lblEditFolderTitle: "Edit Folder Name",
                 lblFolderName: "Folder Name",
                 btnSubmitFolder: "Create",
+                btnUpdateFolder: "Save",
+                lblEditFileTitle: "Edit File",
+                lblEditFileTitleLabel: "File Title",
+                lblEditFileDescLabel: "Description",
+                btnSubmitEditFile: "Save Changes",
                 lblDeleteTitle: "Confirm Delete",
                 lblDeleteMsg: "Please enter the PIN code to proceed.",
                 lblPin: "PIN Code",
@@ -394,72 +429,65 @@
             }
         };
 
-        function saveStateToStorage() {
+        async function loadDataFromCloud() {
             try {
-                localStorage.setItem('cloud_folders', JSON.stringify(state.folders));
-                localStorage.setItem('cloud_files_meta', JSON.stringify(state.files));
-            } catch (e) {
-                console.error('Error saving local state:', e);
-            }
-        }
-
-        function loadFoldersFromStorage() {
-            try {
-                const savedFolders = localStorage.getItem('cloud_folders');
-                if (savedFolders) {
-                    state.folders = JSON.parse(savedFolders);
+                // Fetch folders from Supabase table 'app_folders'
+                const { data: foldersData, error: folderError } = await _supabase.from('app_folders').select('*');
+                if (!folderError && foldersData) {
+                    state.folders = foldersData.map(f => ({
+                        id: f.folder_id,
+                        name: f.name,
+                        parentId: f.parent_id || 'root'
+                    }));
+                } else if (state.folders.length === 0) {
+                    state.folders = [
+                        { id: 'f1', name: 'التقارير السنوية', parentId: 'root' },
+                        { id: 'f2', name: 'الفواتير', parentId: 'root' }
+                    ];
+                    for (const f of state.folders) {
+                        await _supabase.from('app_folders').upsert({
+                            folder_id: f.id,
+                            name: f.name,
+                            parent_id: f.parentId
+                        }, { onConflict: 'folder_id' });
+                    }
                 }
-            } catch (e) {
-                console.error('Error loading folders:', e);
-            }
-        }
 
-        async function loadFilesFromSupabase() {
-            loadFoldersFromStorage();
-            let savedMeta = {};
-            try {
-                const metaStr = localStorage.getItem('cloud_files_meta');
-                if (metaStr) {
-                    const metaArr = JSON.parse(metaStr);
-                    metaArr.forEach(item => {
-                        if (item.storageKey) savedMeta[item.storageKey] = item;
-                        else if (item.fileName) savedMeta[item.fileName] = item;
+                // Fetch files from Supabase storage and metadata table 'app_files_meta'
+                const { data: storageList, error: storageError } = await _supabase.storage.from('files').list('');
+                let cloudMeta = {};
+                const { data: metaData, error: metaError } = await _supabase.from('app_files_meta').select('*');
+                if (!metaError && metaData) {
+                    metaData.forEach(m => {
+                        cloudMeta[m.storage_key || m.file_id] = m;
                     });
                 }
-            } catch (e) {
-                console.error('Error reading saved meta:', e);
-            }
 
-            try {
-                const { data, error } = await _supabase.storage.from('files').list('');
-                if (!error && data) {
-                    const validFiles = data.filter(file => file.name !== '.emptyFolderPlaceholder');
+                if (!storageError && storageList) {
+                    const validFiles = storageList.filter(file => file.name !== '.emptyFolderPlaceholder');
                     state.files = validFiles.map(file => {
                         const { data: publicUrlData } = _supabase.storage
                             .from('files')
                             .getPublicUrl(file.name);
 
-                        const saved = savedMeta[file.name] || {};
+                        const saved = cloudMeta[file.name] || {};
                         return {
-                            id: saved.id || ('file_' + (file.id || Math.random().toString(36).substring(2))),
+                            id: saved.file_id || ('file_' + Math.random().toString(36).substring(2)),
                             title: saved.title || (file.name.includes('_') ? file.name.split('_').slice(1).join('_') : file.name),
                             desc: saved.desc || '',
-                            date: saved.date || (file.created_at ? file.created_at.split('T')[0] : ''),
+                            date: saved.date || (file.created_at ? file.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
                             category: saved.category || 'other',
-                            fileName: saved.fileName || file.name,
+                            fileName: saved.file_name || file.name,
                             storageKey: file.name,
                             dataUrl: publicUrlData.publicUrl,
-                            folderId: saved.folderId !== undefined ? saved.folderId : 'root',
-                            isFavorite: saved.isFavorite || false
+                            folderId: saved.folder_id !== undefined ? saved.folder_id : 'root',
+                            isFavorite: saved.is_favorite || false
                         };
                     });
-                    saveStateToStorage();
                     renderItems();
-                } else {
-                    console.error('Supabase list error:', error);
                 }
             } catch (err) {
-                console.error('Error fetching files from Supabase:', err);
+                console.error('Error loading data from cloud:', err);
             }
         }
 
@@ -467,7 +495,7 @@
             document.getElementById('fileDate').valueAsDate = new Date();
             initDatePicker();
             applyLanguage();
-            await loadFilesFromSupabase();
+            await loadDataFromCloud();
         };
 
         async function handleLogin(e) {
@@ -480,7 +508,8 @@
                 state.isLoggedIn = true;
                 errorEl.classList.add('hidden');
 
-                await loadFilesFromSupabase();
+                // Refresh data from cloud upon successful login
+                await loadDataFromCloud();
 
                 document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
                 setTimeout(() => {
@@ -553,7 +582,6 @@
         function applyLanguage() {
             const t = i18n[state.lang];
             
-            // Login elements
             document.getElementById('loginTitle').innerText = t.loginTitle;
             document.getElementById('loginSubtitle').innerText = t.loginSubtitle;
             document.getElementById('lblUsername').innerText = t.lblUsername;
@@ -562,7 +590,6 @@
             document.getElementById('loginError').innerText = t.loginErrorMsg;
             document.getElementById('lblLoginLang').innerText = t.loginLang;
 
-            // App elements
             document.getElementById('appTitle').innerText = t.appTitle;
             document.getElementById('lblMyFiles').innerText = t.myFiles;
             document.getElementById('lblFavorites').innerText = t.favorites;
@@ -585,14 +612,14 @@
             document.getElementById('btnCancelUpload').innerText = t.btnCancel;
             document.getElementById('btnSubmitUpload').querySelector('span').innerText = t.btnSubmitUpload;
             
-            document.getElementById('lblFolderTitle').innerText = t.lblFolderTitle;
             document.getElementById('lblFolderName').innerText = t.lblFolderName;
             document.getElementById('btnCancelFolder').innerText = t.btnCancel;
-            document.getElementById('btnSubmitFolder').innerText = t.btnSubmitFolder;
-            
-            document.getElementById('lblDeleteTitle').innerText = t.lblDeleteTitle;
-            document.getElementById('lblDeleteMsg').innerText = t.lblDeleteMsg;
-            document.getElementById('lblPin').innerText = t.lblPin;
+
+            document.getElementById('lblEditFileTitle').innerText = t.lblEditFileTitle;
+            document.getElementById('lblEditFileTitleLabel').innerText = t.lblEditFileTitleLabel;
+            document.getElementById('lblEditFileDescLabel').innerText = t.lblEditFileDescLabel;
+            document.getElementById('btnCancelEditFile').innerText = t.btnCancel;
+            document.getElementById('btnSubmitEditFile').innerText = t.btnSubmitEditFile;
             document.getElementById('btnCancelDelete').innerText = t.btnCancel;
             document.getElementById('btnSubmitDelete').innerText = t.btnSubmitDelete;
             document.getElementById('pinError').innerText = t.pinError;
@@ -752,9 +779,14 @@
                     <i class="fa-solid fa-folder text-blue-400 text-5xl mb-3 group-hover:scale-110 transition-transform"></i>
                     <h3 class="font-bold text-slate-700 w-full truncate px-2" title="${folder.name}">${folder.name}</h3>
                 </div>
-                <button onclick="confirmDelete('folder', '${folder.id}')" class="absolute top-2 left-2 w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all-custom shadow-sm flex items-center justify-center">
-                    <i class="fa-solid fa-trash-can text-sm"></i>
-                </button>
+                <div class="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onclick="openEditFolderModal('${folder.id}')" class="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 shadow-sm flex items-center justify-center" title="تعديل اسم المجلد">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
+                    <button onclick="confirmDelete('folder', '${folder.id}')" class="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 shadow-sm flex items-center justify-center" title="حذف">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                </div>
             `;
             return div;
         }
@@ -785,6 +817,9 @@
                 </div>
                 <div class="absolute top-2 left-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                     ${previewBtn}
+                    <button onclick="openEditFileModal('${file.id}')" class="w-8 h-8 rounded-full bg-slate-50 shadow-sm flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 text-slate-500" title="تعديل الملف">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
                     <button onclick="downloadFile('${file.id}')" class="w-8 h-8 rounded-full bg-slate-50 shadow-sm flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 text-slate-500" title="تحميل">
                         <i class="fa-solid fa-download text-sm"></i>
                     </button>
@@ -806,7 +841,7 @@
             return div;
         }
 
-        function handleDrop(e, targetFolderId, element) {
+        async function handleDrop(e, targetFolderId, element) {
             e.preventDefault();
             element.classList.remove('drag-over');
             const fileId = e.dataTransfer.getData('text/plain');
@@ -815,7 +850,7 @@
             const file = state.files.find(f => f.id === fileId);
             if (file && file.folderId !== targetFolderId) {
                 file.folderId = targetFolderId;
-                saveStateToStorage();
+                await _supabase.from('app_files_meta').update({ folder_id: targetFolderId }).eq('file_id', file.id);
                 renderItems();
             }
         }
@@ -834,6 +869,7 @@
             const modals = [
                 { m: 'uploadModal', c: 'uploadModalContent' },
                 { m: 'folderModal', c: 'folderModalContent' },
+                { m: 'editFileModal', c: 'editFileModalContent' },
                 { m: 'deleteModal', c: 'deleteModalContent' }
             ];
             
@@ -852,29 +888,93 @@
             document.getElementById('uploadForm').reset();
             document.getElementById('fileDate').valueAsDate = new Date();
             document.getElementById('folderForm').reset();
+            document.getElementById('folderEditId').value = '';
+            document.getElementById('editFileForm').reset();
             document.getElementById('deleteForm').reset();
             document.getElementById('pinError').classList.add('hidden');
         }
 
         function openNewFolderModal() {
+            document.getElementById('lblFolderTitle').innerText = i18n[state.lang].lblFolderTitle;
+            document.getElementById('btnSubmitFolder').innerText = i18n[state.lang].btnSubmitFolder;
+            document.getElementById('folderEditId').value = '';
+            document.getElementById('folderName').value = '';
             openModal('folderModal', 'folderModalContent');
             setTimeout(() => document.getElementById('folderName').focus(), 100);
         }
 
-        function handleNewFolder(e) {
+        function openEditFolderModal(folderId) {
+            const folder = state.folders.find(f => f.id === folderId);
+            if (!folder) return;
+            document.getElementById('lblFolderTitle').innerText = i18n[state.lang].lblEditFolderTitle;
+            document.getElementById('btnSubmitFolder').innerText = i18n[state.lang].btnUpdateFolder;
+            document.getElementById('folderEditId').value = folder.id;
+            document.getElementById('folderName').value = folder.name;
+            openModal('folderModal', 'folderModalContent');
+            setTimeout(() => document.getElementById('folderName').focus(), 100);
+        }
+
+        async function handleFolderSubmit(e) {
             e.preventDefault();
+            const editId = document.getElementById('folderEditId').value;
             const name = document.getElementById('folderName').value.trim();
-            if (name) {
-                state.folders.push({
+            if (!name) return;
+
+            if (editId) {
+                // Update existing folder
+                const folder = state.folders.find(f => f.id === editId);
+                if (folder) {
+                    folder.name = name;
+                    await _supabase.from('app_folders').update({ name: name }).eq('folder_id', editId);
+                    showToast(state.lang === 'ar' ? 'تم تحديث اسم المجلد بنجاح' : 'Folder updated successfully', 'success');
+                }
+            } else {
+                // Create new folder
+                const newFolder = {
                     id: 'f_' + Date.now(),
                     name: name,
                     parentId: state.currentFolderId
+                };
+                state.folders.push(newFolder);
+                await _supabase.from('app_folders').insert({
+                    folder_id: newFolder.id,
+                    name: newFolder.name,
+                    parent_id: newFolder.parentId
                 });
-                saveStateToStorage();
-                closeModals();
-                renderItems();
                 showToast(state.lang === 'ar' ? 'تم إنشاء المجلد بنجاح' : 'Folder created successfully', 'success');
             }
+
+            closeModals();
+            renderItems();
+        }
+
+        function openEditFileModal(fileId) {
+            const file = state.files.find(f => f.id === fileId);
+            if (!file) return;
+            document.getElementById('editFileId').value = file.id;
+            document.getElementById('editFileTitleInput').value = file.title;
+            document.getElementById('editFileDescInput').value = file.desc || '';
+            openModal('editFileModal', 'editFileModalContent');
+            setTimeout(() => document.getElementById('editFileTitleInput').focus(), 100);
+        }
+
+        async function handleEditFileSubmit(e) {
+            e.preventDefault();
+            const fileId = document.getElementById('editFileId').value;
+            const title = document.getElementById('editFileTitleInput').value.trim();
+            const desc = document.getElementById('editFileDescInput').value.trim();
+            if (!title) return;
+
+            const file = state.files.find(f => f.id === fileId);
+            if (file) {
+                file.title = title;
+                file.desc = desc;
+                await _supabase.from('app_files_meta').update({ title: title, desc: desc }).eq('file_id', fileId);
+                showToast(state.lang === 'ar' ? 'تم تعديل الملف بنجاح' : 'File updated successfully', 'success');
+            }
+
+            closeModals();
+            renderItems();
         }
 
         function openUploadModal() {
@@ -917,7 +1017,7 @@
                     .from('files')
                     .getPublicUrl(data.path);
 
-                state.files.push({
+                const fileObj = {
                     id: 'file_' + Date.now(),
                     title: title || file.name,
                     desc: desc,
@@ -928,9 +1028,23 @@
                     dataUrl: publicUrlData.publicUrl,
                     folderId: state.currentFolderId || 'root',
                     isFavorite: false
+                };
+
+                state.files.push(fileObj);
+
+                // Save metadata to Supabase table
+                await _supabase.from('app_files_meta').insert({
+                    file_id: fileObj.id,
+                    title: fileObj.title,
+                    desc: fileObj.desc,
+                    date: fileObj.date,
+                    category: fileObj.category,
+                    file_name: fileObj.fileName,
+                    storage_key: fileObj.storageKey,
+                    folder_id: fileObj.folderId,
+                    is_favorite: fileObj.isFavorite
                 });
 
-                saveStateToStorage();
                 closeModals();
                 renderItems();
                 showToast('تم رفع الملف بنجاح!', 'success');
@@ -943,11 +1057,11 @@
             }
         }
 
-        function toggleFileFavorite(id) {
+        async function toggleFileFavorite(id) {
             const file = state.files.find(f => f.id === id);
             if (file) {
                 file.isFavorite = !file.isFavorite;
-                saveStateToStorage();
+                await _supabase.from('app_files_meta').update({ is_favorite: file.isFavorite }).eq('file_id', file.id);
                 renderItems();
             }
         }
@@ -1017,17 +1131,16 @@
                 if (state.itemToDelete) {
                     if (state.itemToDelete.type === 'file') {
                         const fileToDelete = state.files.find(f => f.id === state.itemToDelete.id);
-                        if (fileToDelete && fileToDelete.storageKey) {
-                            const { error } = await _supabase.storage.from('files').remove([fileToDelete.storageKey]);
-                            if (error) {
-                                console.error('خطأ عند حذف الملف من Supabase Storage:', error);
+                        if (fileToDelete) {
+                            if (fileToDelete.storageKey) {
+                                await _supabase.storage.from('files').remove([fileToDelete.storageKey]);
                             }
+                            await _supabase.from('app_files_meta').delete().eq('file_id', fileToDelete.id);
                         }
                         state.files = state.files.filter(f => f.id !== state.itemToDelete.id);
                     } else if (state.itemToDelete.type === 'folder') {
                         await deleteFolderRecursive(state.itemToDelete.id);
                     }
-                    saveStateToStorage();
                 }
 
                 closeModals();
@@ -1045,10 +1158,13 @@
         async function deleteFolderRecursive(folderId) {
             const filesInFolder = state.files.filter(f => f.folderId === folderId);
             const keysToRemove = filesInFolder.map(f => f.storageKey).filter(Boolean);
+            const fileIdsToRemove = filesInFolder.map(f => f.id);
 
             if (keysToRemove.length > 0) {
-                const { error } = await _supabase.storage.from('files').remove(keysToRemove);
-                if (error) console.error('Supabase remove error in folder:', error);
+                await _supabase.storage.from('files').remove(keysToRemove);
+                for (const fid of fileIdsToRemove) {
+                    await _supabase.from('app_files_meta').delete().eq('file_id', fid);
+                }
             }
 
             state.files = state.files.filter(f => f.folderId !== folderId);
@@ -1056,7 +1172,8 @@
             for (const child of childFolders) {
                 await deleteFolderRecursive(child.id);
             }
-            state.folders = state.folders.filter(f => f.id !== folderId);
+            state.folders = state.folders.folders ? state.folders.filter(f => f.id !== folderId) : state.folders.filter(f => f.id !== folderId);
+            await _supabase.from('app_folders').delete().eq('folder_id', folderId);
         }
 
         function showToast(message, type = 'info') {
