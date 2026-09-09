@@ -4,20 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سحابة التخزين | Cloud Storage</title>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <!-- Flatpickr for modern date picking -->
+    <!-- Flatpickr Date Picker CSS & JS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://npmcdn.com/flatpickr/dist/l10n/ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ar.js"></script>
+    <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
-        body {
-            font-family: 'Tajawal', 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-        
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -60,7 +59,7 @@
         }
     </style>
 </head>
-<body class="h-screen flex overflow-hidden text-slate-800">
+<body class="bg-slate-100 font-sans h-screen flex overflow-hidden">
 
     <div id="loginScreen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 transform transition-all-custom">
@@ -177,6 +176,7 @@
         </div>
     </main>
 
+    <!-- Upload Modal -->
     <div id="uploadModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 m-4 transform transition-all-custom scale-95 opacity-0" id="uploadModalContent">
             <div class="flex justify-between items-center mb-5">
@@ -222,6 +222,7 @@
         </div>
     </div>
 
+    <!-- Folder Modal -->
     <div id="folderModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 m-4 transform transition-all-custom scale-95 opacity-0" id="folderModalContent">
             <div class="flex justify-between items-center mb-5">
@@ -241,6 +242,7 @@
         </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
     <div id="deleteModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 m-4 transform transition-all-custom scale-95 opacity-0" id="deleteModalContent">
             <div class="flex justify-between items-center mb-5">
@@ -264,6 +266,7 @@
         </div>
     </div>
 
+    <!-- Preview Modal -->
     <div id="previewModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col transform transition-all-custom scale-95 opacity-0" id="previewModalContent">
             <div class="flex justify-between items-center p-4 border-b border-slate-200">
@@ -281,6 +284,7 @@
         </div>
     </div>
 
+    <!-- Toast Notification -->
     <div id="toastNotification" class="fixed bottom-5 start-5 z-50 transform transition-all duration-300 opacity-0 translate-y-5 hidden">
         <div class="bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700">
             <i id="toastIcon" class="fa-solid fa-circle-info text-blue-400 text-lg"></i>
@@ -289,6 +293,11 @@
     </div>
 
     <script>
+        const { createClient } = supabase;
+        const SUPABASE_URL = 'https://tcydomjjtxrwwcbzwxbq.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_wgu7syPo4VMKHt5ybzxP6w_NSoS02fQ';
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
         const CORRECT_USER = "CANARA2120";
         const SECRET_PIN = "558165";
         let datePicker;
@@ -385,10 +394,41 @@
             }
         };
 
-        window.onload = async () => {
-            document.getElementById('fileDate').valueAsDate = new Date();
-            initDatePicker();
-            applyLanguage();
+        function saveStateToStorage() {
+            try {
+                localStorage.setItem('cloud_folders', JSON.stringify(state.folders));
+                localStorage.setItem('cloud_files_meta', JSON.stringify(state.files));
+            } catch (e) {
+                console.error('Error saving local state:', e);
+            }
+        }
+
+        function loadFoldersFromStorage() {
+            try {
+                const savedFolders = localStorage.getItem('cloud_folders');
+                if (savedFolders) {
+                    state.folders = JSON.parse(savedFolders);
+                }
+            } catch (e) {
+                console.error('Error loading folders:', e);
+            }
+        }
+
+        async function loadFilesFromSupabase() {
+            loadFoldersFromStorage();
+            let savedMeta = {};
+            try {
+                const metaStr = localStorage.getItem('cloud_files_meta');
+                if (metaStr) {
+                    const metaArr = JSON.parse(metaStr);
+                    metaArr.forEach(item => {
+                        if (item.storageKey) savedMeta[item.storageKey] = item;
+                        else if (item.fileName) savedMeta[item.fileName] = item;
+                    });
+                }
+            } catch (e) {
+                console.error('Error reading saved meta:', e);
+            }
 
             try {
                 const { data, error } = await _supabase.storage.from('files').list('');
@@ -399,25 +439,35 @@
                             .from('files')
                             .getPublicUrl(file.name);
 
+                        const saved = savedMeta[file.name] || {};
                         return {
-                            id: 'file_' + (file.id || Math.random()),
-                            title: file.name.split('_').slice(1).join('_') || file.name,
-                            desc: '',
-                            date: file.created_at ? file.created_at.split('T')[0] : '',
-                            category: 'other',
-                            fileName: file.name,
+                            id: saved.id || ('file_' + (file.id || Math.random().toString(36).substring(2))),
+                            title: saved.title || (file.name.includes('_') ? file.name.split('_').slice(1).join('_') : file.name),
+                            desc: saved.desc || '',
+                            date: saved.date || (file.created_at ? file.created_at.split('T')[0] : ''),
+                            category: saved.category || 'other',
+                            fileName: saved.fileName || file.name,
+                            storageKey: file.name,
                             dataUrl: publicUrlData.publicUrl,
-                            folderId: null,
-                            isFavorite: false
+                            folderId: saved.folderId !== undefined ? saved.folderId : 'root',
+                            isFavorite: saved.isFavorite || false
                         };
                     });
+                    saveStateToStorage();
                     renderItems();
                 } else {
                     console.error('Supabase list error:', error);
                 }
             } catch (err) {
-                console.error('Error fetching files on load:', err);
+                console.error('Error fetching files from Supabase:', err);
             }
+        }
+
+        window.onload = async () => {
+            document.getElementById('fileDate').valueAsDate = new Date();
+            initDatePicker();
+            applyLanguage();
+            await loadFilesFromSupabase();
         };
 
         async function handleLogin(e) {
@@ -430,31 +480,7 @@
                 state.isLoggedIn = true;
                 errorEl.classList.add('hidden');
 
-                const { data, error } = await _supabase.storage.from('files').list('');
-                if (!error && data) {
-                    const validFiles = data.filter(file => file.name !== '.emptyFolderPlaceholder');
-
-                    state.files = validFiles.map(file => {
-                        const { data: publicUrlData } = _supabase.storage
-                            .from('files')
-                            .getPublicUrl(file.name);
-                        return {
-                            id: 'file_' + (file.id || Math.random()),
-                            title: file.name,
-                            desc: '',
-                            date: file.created_at ? file.created_at.split('T')[0] : '',
-                            category: 'other',
-                            fileName: file.name,
-                            dataUrl: publicUrlData.publicUrl,
-                            folderId: null,
-                            isFavorite: false
-                        };
-                    });
-                    
-                    renderItems();
-                } else {
-                    console.error('Supabase list error:', error);
-                }
+                await loadFilesFromSupabase();
 
                 document.getElementById('loginScreen').classList.add('opacity-0', 'pointer-events-none');
                 setTimeout(() => {
@@ -789,6 +815,7 @@
             const file = state.files.find(f => f.id === fileId);
             if (file && file.folderId !== targetFolderId) {
                 file.folderId = targetFolderId;
+                saveStateToStorage();
                 renderItems();
             }
         }
@@ -843,6 +870,7 @@
                     name: name,
                     parentId: state.currentFolderId
                 });
+                saveStateToStorage();
                 closeModals();
                 renderItems();
                 showToast(state.lang === 'ar' ? 'تم إنشاء المجلد بنجاح' : 'Folder created successfully', 'success');
@@ -870,11 +898,9 @@
             submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>جاري الرفع...</span>';
 
             try {
-                // حل مشكلة (Invalid key) بإنشاء اسم ملف آمن بتشفير ASCII والتاريخ
                 const fileExt = file.name.includes('.') ? file.name.split('.').pop() : '';
                 const safeStorageKey = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${fileExt ? '.' + fileExt : ''}`;
 
-                // رفع الملف باستخدام الاسم المعالج إلى Supabase
                 const { data, error } = await _supabase.storage
                     .from('files')
                     .upload(safeStorageKey, file);
@@ -887,12 +913,10 @@
                     return;
                 }
 
-                // جلب الرابط العام للملف المرفوع
                 const { data: publicUrlData } = _supabase.storage
                     .from('files')
                     .getPublicUrl(data.path);
 
-                // حفظ بيانات الملف الكاملة باللغة العربية مع الوصف الطويل والعنوان
                 state.files.push({
                     id: 'file_' + Date.now(),
                     title: title || file.name,
@@ -900,11 +924,13 @@
                     date: date,
                     category: category,
                     fileName: file.name,
+                    storageKey: safeStorageKey,
                     dataUrl: publicUrlData.publicUrl,
-                    folderId: state.currentFolderId,
+                    folderId: state.currentFolderId || 'root',
                     isFavorite: false
                 });
 
+                saveStateToStorage();
                 closeModals();
                 renderItems();
                 showToast('تم رفع الملف بنجاح!', 'success');
@@ -921,6 +947,7 @@
             const file = state.files.find(f => f.id === id);
             if (file) {
                 file.isFavorite = !file.isFavorite;
+                saveStateToStorage();
                 renderItems();
             }
         }
@@ -973,7 +1000,7 @@
             setTimeout(() => document.getElementById('deletePin').focus(), 100);
         }
 
-        function handleDelete(e) {
+        async function handleDelete(e) {
             e.preventDefault();
             const pin = document.getElementById('deletePin').value;
             
@@ -981,24 +1008,54 @@
                 document.getElementById('pinError').classList.remove('hidden');
                 return;
             }
-            
-            if (state.itemToDelete) {
-                if (state.itemToDelete.type === 'file') {
-                    state.files = state.files.filter(f => f.id !== state.itemToDelete.id);
-                } else if (state.itemToDelete.type === 'folder') {
-                    deleteFolderRecursive(state.itemToDelete.id);
+
+            const submitBtn = document.getElementById('btnSubmitDelete');
+            const originalBtnText = submitBtn.innerText;
+            submitBtn.disabled = true;
+
+            try {
+                if (state.itemToDelete) {
+                    if (state.itemToDelete.type === 'file') {
+                        const fileToDelete = state.files.find(f => f.id === state.itemToDelete.id);
+                        if (fileToDelete && fileToDelete.storageKey) {
+                            const { error } = await _supabase.storage.from('files').remove([fileToDelete.storageKey]);
+                            if (error) {
+                                console.error('خطأ عند حذف الملف من Supabase Storage:', error);
+                            }
+                        }
+                        state.files = state.files.filter(f => f.id !== state.itemToDelete.id);
+                    } else if (state.itemToDelete.type === 'folder') {
+                        await deleteFolderRecursive(state.itemToDelete.id);
+                    }
+                    saveStateToStorage();
                 }
+
+                closeModals();
+                renderItems();
+                showToast(state.lang === 'ar' ? 'تم الحذف بنجاح' : 'Deleted successfully', 'info');
+            } catch (err) {
+                console.error('Delete error:', err);
+                showToast(state.lang === 'ar' ? 'حدث خطأ أثناء الحذف' : 'Error deleting item', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = originalBtnText;
             }
-            
-            closeModals();
-            renderItems();
-            showToast('تم الحذف بنجاح', 'info');
         }
 
-        function deleteFolderRecursive(folderId) {
+        async function deleteFolderRecursive(folderId) {
+            const filesInFolder = state.files.filter(f => f.folderId === folderId);
+            const keysToRemove = filesInFolder.map(f => f.storageKey).filter(Boolean);
+
+            if (keysToRemove.length > 0) {
+                const { error } = await _supabase.storage.from('files').remove(keysToRemove);
+                if (error) console.error('Supabase remove error in folder:', error);
+            }
+
             state.files = state.files.filter(f => f.folderId !== folderId);
             const childFolders = state.folders.filter(f => f.parentId === folderId);
-            childFolders.forEach(child => deleteFolderRecursive(child.id));
+            for (const child of childFolders) {
+                await deleteFolderRecursive(child.id);
+            }
             state.folders = state.folders.filter(f => f.id !== folderId);
         }
 
@@ -1027,11 +1084,6 @@
                 setTimeout(() => toast.classList.add('hidden'), 300);
             }, 3500);
         }
-
-        const { createClient } = supabase;
-        const SUPABASE_URL = 'https://tcydomjjtxrwwcbzwxbq.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_wgu7syPo4VMKHt5ybzxP6w_NSoS02fQ';
-        const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
         window.handleLogin = handleLogin;
     </script>
